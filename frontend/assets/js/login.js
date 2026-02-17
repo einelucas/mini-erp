@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3000/api";
+const API_URL = "https://mini-erp-98tn.onrender.com";
 
 // ===== LOGIN =====
 document.getElementById("loginForm").addEventListener("submit", async (e) => {
