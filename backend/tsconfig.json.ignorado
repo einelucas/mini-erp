@@ -1,0 +1,53 @@
+{
+  "compilerOptions": {
+    /* 🌐 Configuração de Ambiente para Node.js */
+    "target": "ES2022", // Define a versão do JavaScript de saída (estável para Node.js 18+)
+    "module": "CommonJS", // ❗ ESSENCIAL: Força o sistema de módulos CommonJS para usar require()
+    "moduleResolution": "node", // Usa a resolução de módulos do Node.js
+    "lib": ["ES2022"], // Inclui as bibliotecas de tipo mais recentes do ECMAScript
+    "types": ["node"], // ❗ Inclui os tipos do Node.js (necessário para @types/node)
+    "esModuleInterop": true, // Permite importar módulos CommonJS usando sintaxe de ES6
+    "allowSyntheticDefaultImports": true, // Permite importações padrão de módulos sem export default
+
+    /* 📁 Estrutura de Arquivos */
+    "rootDir": "./src", // Diretório raiz do código fonte TypeScript
+    "outDir": "./dist", // Pasta onde o JavaScript compilado será gerado
+    "resolveJsonModule": true, // Permite importar arquivos JSON
+
+    /* 🔍 Opções de Verificação Estrita */
+    "strict": true, // Ativa todas as verificações de tipo estritas
+    "noImplicitAny": true, // Erro se o tipo `any` for inferido
+    "strictNullChecks": true, // Verificação rigorosa de null/undefined
+    "strictFunctionTypes": true, // Verificação rigorosa de tipos de função
+    "strictBindCallApply": true, // Verifica se `bind`, `call`, `apply` estão corretos
+    "noImplicitThis": true, // Erro se `this` tiver tipo `any` implícito
+    "alwaysStrict": true, // Sempre emite 'use strict'
+
+    /* 📤 Outras Opções de Saída */
+    "sourceMap": true, // Gera arquivos .map para depuração
+    "declaration": true, // Gera arquivos .d.ts (útil para bibliotecas)
+    "declarationMap": true, // Gera sourcemaps para declarações
+    "removeComments": true, // Remove comentários no JS de saída
+    "noEmitOnError": true, // Não gera arquivos se houver erro de tipo
+
+    /* ✨ Opções de Linting no Compilador */
+    "noUnusedLocals": true, // Erro para variáveis locais não usadas
+    "noUnusedParameters": true, // Erro para parâmetros de função não usados
+    "noImplicitReturns": true, // Erro se nem todos os caminhos da função retornam valor
+    "noFallthroughCasesInSwitch": true, // Erro para cases sem break em switch
+    "noUncheckedIndexedAccess": true, // Verifica acesso a índices (ex: array[0] pode ser undefined)
+
+    /* 🛠️ Configurações Avançadas */
+    "skipLibCheck": true, // Ignora checagem de tipos em arquivos de declaração
+    "forceConsistentCasingInFileNames": true, // Garante consistência de maiúsculas/minúsculas nos imports
+    "isolatedModules": true // Necessário para ferramentas como Babel
+  },
+  "include": [
+    "src/**/*" // Inclui todos os arquivos TypeScript dentro de src
+  ],
+  "exclude": [
+    "node_modules", // Exclui a pasta de dependências
+    "dist", // Exclui a pasta de saída
+    "src/database/generated" // Exclui o cliente Prisma gerado (código gerado não deve ser compilado)
+  ]
+}

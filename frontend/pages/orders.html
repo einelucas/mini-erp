@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini ERP - Pedidos</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Scripts de configuração PRIMEIRO -->
+    <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/script.js"></script>
+</head>
+<body>
+    <div id="demoWarning" class="demo-warning" style="display: none;">
+        <span>⚡ MODO DEMONSTRAÇÃO - Os dados não são salvos permanentemente ⚡</span>
+    </div>
+
+    <div class="container">
+        <aside class="sidebar">
+            <div class="logo">MINI <span>ERP</span></div>
+            <nav>
+                <ul>
+                    <li><a href="../index.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
+                    <li><a href="users.html"><span class="sidebar-icon icon-users"></span>Usuários</a></li>
+                    <li><a href="products.html"><span class="sidebar-icon icon-products"></span>Produtos</a></li>
+                    <li><a href="orders.html" class="active"><span class="sidebar-icon icon-orders"></span>Pedidos</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header>
+                <h1><span class="header-icon icon-orders-header"></span>Pedidos</h1>
+                <div class="user-info"></div>
+            </header>
+
+            <div class="recent-section filter-section">
+                <div class="filter-bar">
+                    <select id="statusFilter">
+                        <option value="">Todos os status</option>
+                        <option value="PENDING">Pendentes</option>
+                        <option value="APPROVED">Aprovados</option>
+                        <option value="SHIPPED">Enviados</option>
+                        <option value="DELIVERED">Entregues</option>
+                        <option value="CANCELED">Cancelados</option>
+                    </select>
+
+                    <select id="userFilter">
+                        <option value="">Todos os usuários</option>
+                    </select>
+
+                    <input type="text" id="searchOrder" placeholder="Buscar pedido...">
+                    
+                    <button onclick="openOrderModal()" class="btn btn-success">+ Novo Pedido</button>
+                </div>
+            </div>
+
+            <div class="recent-section">
+                <div class="section-header">
+                    <h2>Lista de Pedidos</h2>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="orders-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Data</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Itens</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <tr><td colspan="7" class="loading">Carregando pedidos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE PEDIDO -->
+    <div class="modal" id="orderModal">
+        <div class="modal-content" style="width: 600px">
+            <h2>Novo Pedido</h2>
+            <form id="orderForm" onsubmit="saveOrder(event)">
+                <div class="form-group">
+                    <label for="orderUserId">Cliente *</label>
+                    <select id="orderUserId" required>
+                        <option value="">Selecione um cliente</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Itens do Pedido</label>
+                    <div id="items-container">
+                        <!-- Itens serão adicionados aqui via JS -->
+                    </div>
+                    <button type="button" onclick="addOrderItem()" class="btn btn-primary" style="margin-top: 10px; width: 100%">
+                        + Adicionar Item
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label>Total do Pedido:</label>
+                    <h3 id="orderTotal">R$ 0,00</h3>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" onclick="closeOrderModal()" class="btn btn-cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Criar Pedido</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE DETALHES -->
+    <div class="modal" id="detailsModal">
+        <div class="modal-content" style="width: 500px">
+            <h2>Detalhes do Pedido</h2>
+            <div id="orderDetails"></div>
+            <div class="modal-actions">
+                <button type="button" onclick="closeDetailsModal()" class="btn btn-cancel">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE STATUS -->
+    <div class="modal" id="statusModal">
+        <div class="modal-content" style="width: 400px">
+            <h2>Atualizar Status</h2>
+            <form id="statusForm" onsubmit="updateOrderStatus(event)">
+                <input type="hidden" id="statusOrderId" />
+
+                <div class="form-group">
+                    <label for="newStatus">Novo Status:</label>
+                    <select id="newStatus" required>
+                        <option value="PENDING">Pendente</option>
+                        <option value="APPROVED">Aprovado</option>
+                        <option value="SHIPPED">Enviado</option>
+                        <option value="DELIVERED">Entregue</option>
+                        <option value="CANCELED">Cancelado</option>
+                    </select>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" onclick="closeStatusModal()" class="btn btn-cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Atualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ===== VARIÁVEIS GLOBAIS DA PÁGINA =====
+        let orders = [];
+        let products = [];
+        let users = [];
+        let currentOrderItems = [];
+        let currentOrderId = null;
+
+        // ===== CARREGAR DADOS =====
+        async function loadOrders() {
+            const tbody = document.getElementById('orders-table-body');
+            tbody.innerHTML = '<tr><td colspan="7" class="loading">Carregando pedidos...</td></tr>';
+            
+            try {
+                // Carregar todos os dados necessários
+                const [ordersRes, productsRes, usersRes] = await Promise.all([
+                    fetchWithAuth('/orders'),
+                    fetchWithAuth('/products'),
+                    fetchWithAuth('/users')
+                ]);
+
+                const ordersData = await ordersRes.json();
+                const productsData = await productsRes.json();
+                const usersData = await usersRes.json();
+
+                if (ordersData?.data) orders = ordersData.data;
+                if (productsData?.data) products = productsData.data;
+                if (usersData?.data) {
+                    users = usersData.data;
+                    populateUserFilters();
+                }
+
+                displayOrders(orders);
+            } catch (error) {
+                console.error('Erro ao carregar pedidos:', error);
+                tbody.innerHTML = `<tr><td colspan="7" class="loading">Erro: ${error.message}</td></tr>`;
+            }
+        }
+
+        function populateUserFilters() {
+            const userFilter = document.getElementById('userFilter');
+            const orderUserSelect = document.getElementById('orderUserId');
+            
+            if (userFilter && users.length > 0) {
+                userFilter.innerHTML = '<option value="">Todos os usuários</option>';
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    userFilter.appendChild(option);
+                });
+            }
+
+            if (orderUserSelect && users.length > 0) {
+                orderUserSelect.innerHTML = '<option value="">Selecione um cliente</option>';
+                users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = user.name;
+                    orderUserSelect.appendChild(option);
+                });
+            }
+        }
+
+        function displayOrders(ordersToShow) {
+            const tbody = document.getElementById('orders-table-body');
+            
+            if (!ordersToShow || ordersToShow.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="loading">Nenhum pedido encontrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = ordersToShow.map(order => `
+                <tr>
+                    <td>#${order.id}</td>
+                    <td><strong>${order.user?.name || 'N/A'}</strong></td>
+                    <td>${formatDate(order.createdAt)}</td>
+                    <td>${formatCurrency(order.total)}</td>
+                    <td><span class="status status-${order.status?.toLowerCase() || 'pending'}">${order.status || 'PENDING'}</span></td>
+                    <td>${order.items?.length || 0} itens</td>
+                    <td>
+                        <button onclick="viewOrderDetails(${order.id})" class="btn btn-primary btn-small">👁️</button>
+                        <button onclick="openStatusModal(${order.id})" class="btn btn-success btn-small">📝</button>
+                        ${order.status !== 'CANCELED' && order.status !== 'DELIVERED' ? 
+                            `<button onclick="cancelOrder(${order.id})" class="btn btn-danger btn-small">❌</button>` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ===== FILTROS =====
+        function filterOrders() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const userFilter = document.getElementById('userFilter').value;
+            const searchTerm = document.getElementById('searchOrder').value.toLowerCase();
+
+            let filtered = [...orders];
+
+            if (statusFilter) {
+                filtered = filtered.filter(o => o.status === statusFilter);
+            }
+
+            if (userFilter) {
+                filtered = filtered.filter(o => o.userId === parseInt(userFilter));
+            }
+
+            if (searchTerm) {
+                filtered = filtered.filter(o => 
+                    o.id.toString().includes(searchTerm) ||
+                    o.user?.name?.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            displayOrders(filtered);
+        }
+
+        // ===== MODAL DE PEDIDO =====
+        function openOrderModal() {
+            if (products.length === 0) {
+                showNotification('Carregando produtos...', 'error');
+                return;
+            }
+            document.getElementById('orderModal').classList.add('active');
+            currentOrderItems = [];
+            renderOrderItems();
+            updateOrderTotal();
+        }
+
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('active');
+        }
+
+        function addOrderItem() {
+            currentOrderItems.push({
+                productId: '',
+                quantity: 1,
+                price: 0
+            });
+            renderOrderItems();
+        }
+
+        function removeOrderItem(index) {
+            currentOrderItems.splice(index, 1);
+            renderOrderItems();
+            updateOrderTotal();
+        }
+
+        function renderOrderItems() {
+            const container = document.getElementById('items-container');
+            
+            if (!container) return;
+
+            if (currentOrderItems.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Nenhum item adicionado</p>';
+                return;
+            }
+
+            container.innerHTML = currentOrderItems.map((item, index) => `
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                    <select onchange="updateItemProduct(${index}, this.value)" style="flex: 2; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--white);" required>
+                        <option value="">Selecione</option>
+                        ${products.map(p => `
+                            <option value="${p.id}" ${item.productId == p.id ? 'selected' : ''} 
+                                data-price="${p.price}" data-stock="${p.stock}">
+                                ${p.name} - ${formatCurrency(p.price)} (Estoque: ${p.stock})
+                            </option>
+                        `).join('')}
+                    </select>
+                    <input type="number" min="1" value="${item.quantity}" 
+                        onchange="updateItemQuantity(${index}, this.value)" 
+                        style="width: 80px; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--white);" required>
+                    <span style="min-width: 100px; color: var(--text-main);">${formatCurrency(item.price * item.quantity)}</span>
+                    <button type="button" onclick="removeOrderItem(${index})" class="btn btn-danger btn-small">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        function updateItemProduct(index, productId) {
+            const product = products.find(p => p.id == productId);
+            if (product) {
+                currentOrderItems[index].productId = productId;
+                currentOrderItems[index].price = product.price;
+                renderOrderItems();
+                updateOrderTotal();
+            }
+        }
+
+        function updateItemQuantity(index, quantity) {
+            currentOrderItems[index].quantity = parseInt(quantity) || 1;
+            renderOrderItems();
+            updateOrderTotal();
+        }
+
+        function updateOrderTotal() {
+            const total = currentOrderItems.reduce((sum, item) => {
+                return sum + (item.price * item.quantity);
+            }, 0);
+            document.getElementById('orderTotal').innerHTML = formatCurrency(total);
+        }
+
+        // ===== SALVAR PEDIDO =====
+        async function saveOrder(event) {
+            event.preventDefault();
+
+            const userId = document.getElementById('orderUserId').value;
+            
+            if (!userId) {
+                showNotification('Selecione um cliente', 'error');
+                return;
+            }
+
+            if (currentOrderItems.length === 0) {
+                showNotification('Adicione pelo menos um item ao pedido', 'error');
+                return;
+            }
+
+            // Validar estoque
+            for (const item of currentOrderItems) {
+                if (!item.productId) {
+                    showNotification('Selecione um produto para todos os itens', 'error');
+                    return;
+                }
+                const product = products.find(p => p.id == item.productId);
+                if (product && product.stock < item.quantity) {
+                    showNotification(`Estoque insuficiente para ${product.name}. Disponível: ${product.stock}`, 'error');
+                    return;
+                }
+            }
+
+            const orderData = {
+                userId: parseInt(userId),
+                items: currentOrderItems.map(item => ({
+                    productId: parseInt(item.productId),
+                    quantity: item.quantity
+                }))
+            };
+
+            try {
+                const res = await fetchWithAuth('/orders', {
+                    method: 'POST',
+                    body: JSON.stringify(orderData)
+                });
+
+                if (res.ok) {
+                    closeOrderModal();
+                    await loadOrders();
+                    showNotification('Pedido criado com sucesso!', 'success');
+                } else {
+                    const data = await res.json();
+                    throw new Error(data.message || 'Erro ao criar pedido');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // ===== DETALHES DO PEDIDO =====
+        async function viewOrderDetails(id) {
+            try {
+                const response = await fetchWithAuth(`/orders/${id}`);
+                const data = await response.json();
+                if (!data?.data) return;
+
+                const order = data.data;
+                
+                const detailsHtml = `
+                    <div style="margin-bottom: 20px;">
+                        <p><strong>Pedido:</strong> #${order.id}</p>
+                        <p><strong>Cliente:</strong> ${order.user?.name} (${order.user?.email || 'sem email'})</p>
+                        <p><strong>Data:</strong> ${formatDate(order.createdAt)}</p>
+                        <p><strong>Status:</strong> <span class="status status-${order.status?.toLowerCase() || 'pending'}">${order.status || 'PENDING'}</span></p>
+                        <p><strong>Total:</strong> ${formatCurrency(order.total)}</p>
+                    </div>
+                    
+                    <h3>Itens do Pedido:</h3>
+                    <div class="table-responsive">
+                        <table style="width: 100%; margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Qtd</th>
+                                    <th>Preço</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${order.items?.map(item => `
+                                    <tr>
+                                        <td>${item.product?.name || 'Produto'}</td>
+                                        <td>${item.quantity}</td>
+                                        <td>${formatCurrency(item.price)}</td>
+                                        <td>${formatCurrency(item.price * item.quantity)}</td>
+                                    </tr>
+                                `).join('') || '<tr><td colspan="4">Nenhum item</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                document.getElementById('orderDetails').innerHTML = detailsHtml;
+                document.getElementById('detailsModal').classList.add('active');
+            } catch (error) {
+                showNotification('Erro ao carregar detalhes: ' + error.message, 'error');
+            }
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').classList.remove('active');
+        }
+
+        // ===== ATUALIZAR STATUS =====
+        function openStatusModal(id) {
+            currentOrderId = id;
+            document.getElementById('statusOrderId').value = id;
+            document.getElementById('statusModal').classList.add('active');
+        }
+
+        function closeStatusModal() {
+            document.getElementById('statusModal').classList.remove('active');
+        }
+
+        async function updateOrderStatus(event) {
+            event.preventDefault();
+
+            const orderId = document.getElementById('statusOrderId').value;
+            const newStatus = document.getElementById('newStatus').value;
+
+            try {
+                const res = await fetchWithAuth(`/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (res.ok) {
+                    closeStatusModal();
+                    await loadOrders();
+                    showNotification('Status atualizado!', 'success');
+                } else {
+                    const data = await res.json();
+                    throw new Error(data.message || 'Erro ao atualizar status');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // ===== CANCELAR PEDIDO =====
+        async function cancelOrder(id) {
+            if (!confirm('Tem certeza que deseja cancelar este pedido?')) return;
+
+            try {
+                const res = await fetchWithAuth(`/orders/${id}/cancel`, {
+                    method: 'POST'
+                });
+
+                if (res.ok) {
+                    await loadOrders();
+                    showNotification('Pedido cancelado!', 'success');
+                } else {
+                    const data = await res.json();
+                    throw new Error(data.message || 'Erro ao cancelar pedido');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // ===== FECHAR MODAL CLICANDO FORA =====
+        window.onclick = function(event) {
+            const modals = ['orderModal', 'detailsModal', 'statusModal'];
+            modals.forEach(id => {
+                const modal = document.getElementById(id);
+                if (event.target === modal) {
+                    if (id === 'orderModal') closeOrderModal();
+                    if (id === 'detailsModal') closeDetailsModal();
+                    if (id === 'statusModal') closeStatusModal();
+                }
+            });
+        }
+
+        // ===== INICIALIZAR =====
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOrders();
+            
+            document.getElementById('statusFilter')?.addEventListener('change', filterOrders);
+            document.getElementById('userFilter')?.addEventListener('change', filterOrders);
+            document.getElementById('searchOrder')?.addEventListener('keyup', filterOrders);
+        });
+    </script>
+</body>
+</html>

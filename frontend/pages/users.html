@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini ERP - Usuários</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Scripts de configuração PRIMEIRO -->
+    <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/script.js"></script>
+</head>
+<body>
+    <div id="demoWarning" class="demo-warning" style="display: none;">
+        <span>⚡ MODO DEMONSTRAÇÃO - Os dados não são salvos permanentemente ⚡</span>
+    </div>
+
+    <div class="container">
+        <aside class="sidebar">
+            <div class="logo">MINI <span>ERP</span></div>
+            <nav>
+                <ul>
+                    <li><a href="../index.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
+                    <li><a href="users.html" class="active"><span class="sidebar-icon icon-users"></span>Usuários</a></li>
+                    <li><a href="products.html"><span class="sidebar-icon icon-products"></span>Produtos</a></li>
+                    <li><a href="orders.html"><span class="sidebar-icon icon-orders"></span>Pedidos</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header>
+                <h1><span class="header-icon icon-users-header"></span>Usuários</h1>
+                <div class="user-info"></div>
+            </header>
+
+            <div class="recent-section">
+                <div class="section-header">
+                    <h2>Lista de Usuários</h2>
+                    <button onclick="openUserModal()" class="btn btn-success">+ Novo Usuário</button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th>Cadastro</th>
+                                <th>Pedidos</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr><td colspan="6" class="loading">Carregando usuários...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DE USUÁRIO -->
+    <div class="modal" id="userModal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Novo Usuário</h2>
+            <form id="userForm" onsubmit="saveUser(event)">
+                <input type="hidden" id="userId">
+                
+                <div class="form-group">
+                    <label for="name">Nome completo *</label>
+                    <input type="text" id="name" required placeholder="Digite o nome">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">E-mail *</label>
+                    <input type="email" id="email" required placeholder="email@exemplo.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Senha *</label>
+                    <input type="password" id="password" placeholder="******" title="Apenas para novos usuários">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" onclick="closeUserModal()" class="btn btn-cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMAÇÃO -->
+    <div class="modal" id="deleteModal">
+        <div class="modal-content" style="width: 400px;">
+            <h2>Confirmar Exclusão</h2>
+            <p>Tem certeza que deseja excluir este usuário?</p>
+            <p style="color: var(--danger); font-size: 0.9rem;">Esta ação não pode ser desfeita!</p>
+            
+            <div class="modal-actions">
+                <button type="button" onclick="closeDeleteModal()" class="btn btn-cancel">Cancelar</button>
+                <button type="button" onclick="confirmDelete()" class="btn btn-danger">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== VARIÁVEIS GLOBAIS DA PÁGINA =====
+        let currentUserId = null;
+
+        // ===== CARREGAR USUÁRIOS =====
+        async function loadUsers() {
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Carregando usuários...</td></tr>';
+            
+            try {
+                const response = await fetchWithAuth('/users');
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    displayUsers(data.data);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" class="loading">Nenhum usuário encontrado</td></tr>';
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                tbody.innerHTML = `<tr><td colspan="6" class="loading">Erro: ${error.message}</td></tr>`;
+            }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('users-table-body');
+            
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>#${user.id}</td>
+                    <td><strong>${user.name}</strong></td>
+                    <td>${user.email}</td>
+                    <td>${formatDate(user.createdAt)}</td>
+                    <td>${user._count?.orders || 0}</td>
+                    <td>
+                        <button onclick="editUser(${user.id})" class="btn btn-primary btn-small">✏️</button>
+                        <button onclick="deleteUser(${user.id})" class="btn btn-danger btn-small">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ===== FUNÇÕES DO MODAL =====
+        function openUserModal(user = null) {
+            const modal = document.getElementById('userModal');
+            const passwordField = document.getElementById('password');
+            
+            if (user) {
+                document.getElementById('modalTitle').textContent = 'Editar Usuário';
+                document.getElementById('userId').value = user.id;
+                document.getElementById('name').value = user.name;
+                document.getElementById('email').value = user.email;
+                passwordField.required = false;
+                passwordField.placeholder = 'Deixe em branco para manter';
+            } else {
+                document.getElementById('modalTitle').textContent = 'Novo Usuário';
+                document.getElementById('userForm').reset();
+                document.getElementById('userId').value = '';
+                passwordField.required = true;
+                passwordField.placeholder = '******';
+            }
+            
+            modal.classList.add('active');
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.remove('active');
+        }
+
+        // ===== SALVAR USUÁRIO =====
+        async function saveUser(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('userId').value;
+            const userData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value
+            };
+
+            const password = document.getElementById('password').value;
+            if (password) {
+                userData.password = password;
+            }
+
+            try {
+                let response;
+                if (userId) {
+                    response = await fetchWithAuth(`/users/${userId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(userData)
+                    });
+                } else {
+                    response = await fetchWithAuth('/users', {
+                        method: 'POST',
+                        body: JSON.stringify(userData)
+                    });
+                }
+
+                if (response.ok) {
+                    closeUserModal();
+                    await loadUsers();
+                    showNotification(userId ? 'Usuário atualizado!' : 'Usuário criado!', 'success');
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erro ao salvar');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // ===== EDITAR USUÁRIO =====
+        async function editUser(id) {
+            try {
+                const response = await fetchWithAuth(`/users/${id}`);
+                const data = await response.json();
+                if (data?.data) {
+                    openUserModal(data.data);
+                }
+            } catch (error) {
+                showNotification('Erro ao carregar usuário: ' + error.message, 'error');
+            }
+        }
+
+        // ===== DELETAR USUÁRIO =====
+        function deleteUser(id) {
+            currentUserId = id;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            currentUserId = null;
+        }
+
+        async function confirmDelete() {
+            if (!currentUserId) return;
+
+            try {
+                const response = await fetchWithAuth(`/users/${currentUserId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.status === 204 || response.ok) {
+                    closeDeleteModal();
+                    await loadUsers();
+                    showNotification('Usuário excluído!', 'success');
+                } else {
+                    const data = await response.json();
+                    throw new Error(data.message || 'Erro ao excluir');
+                }
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        }
+
+        // ===== FECHAR MODAL CLICANDO FORA =====
+        window.onclick = function(event) {
+            const userModal = document.getElementById('userModal');
+            const deleteModal = document.getElementById('deleteModal');
+            
+            if (event.target === userModal) {
+                closeUserModal();
+            }
+            if (event.target === deleteModal) {
+                closeDeleteModal();
+            }
+        }
+
+        // ===== INICIALIZAR =====
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+        });
+    </script>
+</body>
+</html>
