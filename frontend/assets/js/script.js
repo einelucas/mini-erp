@@ -1,4 +1,4 @@
-// ===== script.js - VERSÃO CORRIGIDA E UNIFICADA =====
+// ===== script.js - VERSÃO CORRIGIDA PARA SUA ESTRUTURA =====
 
 // Aguardar CONFIG carregar
 if (typeof CONFIG === "undefined") {
@@ -16,7 +16,7 @@ function showDemoBanner() {
   }
 }
 
-// ===== VERIFICAÇÃO DE AUTENTICAÇÃO =====
+// ===== VERIFICAÇÃO DE AUTENTICAÇÃO CORRIGIDA =====
 (function checkAuth() {
   // Pular verificação em modo demo
   if (isModoDemo()) {
@@ -29,32 +29,32 @@ function showDemoBanner() {
   const currentPath = window.location.pathname;
   const fileName = currentPath.split("/").pop() || "index.html";
 
-  // Páginas públicas
-  const publicPages = ["login.html", "register.html", "index.html"];
+  // Páginas públicas (SÓ index.html na raiz)
+  const publicPages = ["index.html"];
 
+  // Se não tem token E não está em página pública
   if (!token && !publicPages.includes(fileName)) {
-    console.log("🔒 Redirecionando para login...");
-    const loginPath = currentPath.includes("/pages/")
-      ? "login.html"
-      : "pages/login.html";
-    window.location.href = loginPath;
+    console.log("🔒 Redirecionando para index.html na raiz...");
+    // Sempre volta para a raiz do frontend
+    window.location.href = "/index.html";
   }
 })();
 
-// ===== FUNÇÃO DE LOGOUT =====
+// ===== FUNÇÃO DE LOGOUT CORRIGIDA =====
 function logout() {
   if (confirm("Deseja realmente sair?")) {
+    console.log("🔓 Fazendo logout...");
+
+    // Limpar todos os dados
     localStorage.clear();
     sessionStorage.clear();
-    const currentPath = window.location.pathname;
-    const loginPath = currentPath.includes("/pages/")
-      ? "login.html"
-      : "pages/login.html";
-    window.location.href = loginPath;
+
+    // Redirecionar SEMPRE para o index.html na raiz do frontend
+    window.location.href = "/index.html";
   }
 }
 
-// ===== MOSTRAR INFORMAÇÕES DO USUÁRIO =====
+// ===== MOSTRAR INFORMAÇÕES DO USUÁRIO CORRIGIDO =====
 function displayUserInfo() {
   const user = JSON.parse(
     localStorage.getItem("user") || sessionStorage.getItem("user") || "{}",
@@ -68,19 +68,20 @@ function displayUserInfo() {
       const userName = user.name || (demoMode ? "Usuário Demo" : "Visitante");
       const demoBadge = demoMode ? '<span class="demo-badge">DEMO</span>' : "";
       element.innerHTML = `
-                <span class="user-avatar icon-user-avatar"></span>
-                <span><strong>${userName}</strong>${demoBadge}</span>
-                <button onclick="logout()" class="btn btn-cancel">Sair</button>
-            `;
+        <span class="user-avatar icon-user-avatar"></span>
+        <span><strong>${userName}</strong>${demoBadge}</span>
+        <button onclick="logout()" class="btn btn-cancel">Sair</button>
+      `;
     } else {
+      // Link para login SEMPRE apontando para index.html na raiz
       element.innerHTML = `
-                <a href="login.html" class="btn btn-primary">Entrar</a>
-            `;
+        <a href="/index.html" class="btn btn-primary">Entrar</a>
+      `;
     }
   });
 }
 
-// ===== FUNÇÃO PRINCIPAL DE REQUISIÇÃO =====
+// ===== FUNÇÃO PRINCIPAL DE REQUISIÇÃO CORRIGIDA =====
 async function fetchWithAuth(url, options = {}) {
   // Verificar CONFIG
   if (typeof CONFIG === "undefined") {
@@ -97,7 +98,8 @@ async function fetchWithAuth(url, options = {}) {
     localStorage.getItem("token") || sessionStorage.getItem("token");
 
   if (!token) {
-    window.location.href = "login.html";
+    console.log("🔒 Token não encontrado, redirecionando para login...");
+    window.location.href = "/index.html";
     throw new Error("Não autenticado");
   }
 
@@ -120,9 +122,10 @@ async function fetchWithAuth(url, options = {}) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
+      console.log("🔒 Sessão expirada, redirecionando para login...");
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = "login.html";
+      window.location.href = "/index.html";
       throw new Error("Sessão expirada");
     }
 
@@ -456,7 +459,7 @@ async function handleDemoRequest(url, options = {}) {
         json: () => Promise.resolve({ data: [] }),
         ok: true,
       });
-    }, 500); // Delay para simular rede
+    }, 500);
   });
 }
 
@@ -489,6 +492,7 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("🚀 Mini ERP inicializado");
   console.log("📡 API URL:", CONFIG?.API_URL);
   console.log("🎮 Modo demo:", isModoDemo() ? "ATIVO" : "inativo");
+  console.log("📍 Estrutura: Frontend com index.html na raiz");
 
   showDemoBanner();
   displayUserInfo();

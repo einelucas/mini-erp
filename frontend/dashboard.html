@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini ERP - Dashboard</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Scripts de configuração PRIMEIRO -->
+    <script src="assets/js/config.js"></script>
+    <script src="assets/js/script.js"></script>
+</head>
+<body>
+    <!-- Banner de aviso do modo demonstração -->
+    <div id="demoWarning" class="demo-warning" style="display: none;">
+        <span>⚡ MODO DEMONSTRAÇÃO - Os dados não são salvos permanentemente ⚡</span>
+    </div>
+
+    <div class="container">
+        <!-- SIDEBAR COM ÍCONES -->
+        <aside class="sidebar">
+            <div class="logo">
+                MINI <span>ERP</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="dashboard.html" class="active">
+                        <span class="sidebar-icon icon-dashboard"></span>
+                        Dashboard
+                    </a></li>
+                    <li><a href="pages/users.html">
+                        <span class="sidebar-icon icon-users"></span>
+                        Usuários
+                    </a></li>
+                    <li><a href="pages/products.html">
+                        <span class="sidebar-icon icon-products"></span>
+                        Produtos
+                    </a></li>
+                    <li><a href="pages/orders.html">
+                        <span class="sidebar-icon icon-orders"></span>
+                        Pedidos
+                    </a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header>
+                <h1>
+                    <span class="header-icon icon-dashboard-header"></span>
+                    Dashboard
+                </h1>
+                <div class="user-info">
+                    <!-- O JavaScript vai preencher aqui com nome + badge DEMO -->
+                </div>
+            </header>
+
+            <div class="cards">
+                <div class="card">
+                    <span class="card-icon icon-card-users"></span>
+                    <h3>Total Usuários</h3>
+                    <p class="card-number" id="total-users">-</p>
+                </div>
+                <div class="card">
+                    <span class="card-icon icon-card-products"></span>
+                    <h3>Total Produtos</h3>
+                    <p class="card-number" id="total-products">-</p>
+                </div>
+                <div class="card">
+                    <span class="card-icon icon-card-orders"></span>
+                    <h3>Total Pedidos</h3>
+                    <p class="card-number" id="total-orders">-</p>
+                </div>
+                <div class="card">
+                    <span class="card-icon icon-card-revenue"></span>
+                    <h3>Faturamento</h3>
+                    <p class="card-number" id="total-revenue">R$ -</p>
+                </div>
+            </div>
+
+            <div class="recent-section">
+                <div class="section-header">
+                    <h2>
+                        <span class="header-icon icon-orders-header"></span>
+                        Pedidos Recentes
+                    </h2>
+                    <a href="pages/orders.html" class="btn-view-all">Ver todos →</a>
+                </div>
+                
+                <div class="table-responsive">
+                    <table id="recent-orders">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-orders-body">
+                            <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ===== VARIÁVEIS GLOBAIS DO DASHBOARD =====
+        let dashboardData = {
+            users: [],
+            products: [],
+            orders: []
+        };
+
+        // ===== CARREGAR DADOS DO DASHBOARD =====
+        async function loadDashboard() {
+            console.log('📊 Carregando dashboard...');
+            
+            // Mostrar loading em todos os cards
+            document.getElementById('total-users').textContent = '-';
+            document.getElementById('total-products').textContent = '-';
+            document.getElementById('total-orders').textContent = '-';
+            document.getElementById('total-revenue').textContent = 'R$ -';
+            
+            const tbody = document.getElementById('recent-orders-body');
+            tbody.innerHTML = '<tr><td colspan="5" class="loading">Carregando pedidos recentes...</td></tr>';
+            
+            try {
+                // Se for modo demo, usar dados mock diretamente
+                if (isModoDemo()) {
+                    console.log('🎮 Modo demo - carregando dados mock');
+                    loadDashboardMock();
+                    return;
+                }
+
+                // Carregar dados reais da API
+                const [usersRes, productsRes, ordersRes] = await Promise.all([
+                    fetchWithAuth('/users').catch(() => ({ ok: false, data: [] })),
+                    fetchWithAuth('/products').catch(() => ({ ok: false, data: [] })),
+                    fetchWithAuth('/orders').catch(() => ({ ok: false, data: [] }))
+                ]);
+
+                // Processar usuários
+                if (usersRes.ok) {
+                    const usersData = await usersRes.json();
+                    dashboardData.users = usersData.data || [];
+                }
+
+                // Processar produtos
+                if (productsRes.ok) {
+                    const productsData = await productsRes.json();
+                    dashboardData.products = productsData.data || [];
+                }
+
+                // Processar pedidos
+                if (ordersRes.ok) {
+                    const ordersData = await ordersRes.json();
+                    dashboardData.orders = ordersData.data || [];
+                }
+
+                // Atualizar a interface
+                updateDashboardUI();
+
+            } catch (error) {
+                console.error('❌ Erro ao carregar dashboard:', error);
+                
+                // Se erro e não for modo demo, tentar modo demo como fallback
+                if (!isModoDemo()) {
+                    console.log('⚠️ Erro na API, usando dados mock como fallback');
+                    loadDashboardMock();
+                } else {
+                    showNotification('Erro ao carregar dados: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // ===== CARREGAR DADOS MOCK (MODO DEMO) =====
+        function loadDashboardMock() {
+            // Dados mock
+            dashboardData = {
+                users: [
+                    { id: 1, name: "Admin Demo" },
+                    { id: 2, name: "João Silva" },
+                    { id: 3, name: "Maria Santos" },
+                    { id: 4, name: "Pedro Oliveira" }
+                ],
+                products: [
+                    { id: 1, name: "Notebook Dell", price: 4500.00, stock: 15 },
+                    { id: 2, name: "Mouse Sem Fio", price: 299.90, stock: 42 },
+                    { id: 3, name: "Teclado Mecânico", price: 199.90, stock: 8 },
+                    { id: 4, name: "Monitor 24\"", price: 899.99, stock: 5 },
+                    { id: 5, name: "SSD 480GB", price: 279.99, stock: 23 }
+                ],
+                orders: [
+                    { 
+                        id: 1001, 
+                        userId: 1, 
+                        status: "DELIVERED", 
+                        total: 4799.90, 
+                        createdAt: new Date(Date.now() - 86400000).toISOString(),
+                        user: { name: "Admin Demo" }
+                    },
+                    { 
+                        id: 1002, 
+                        userId: 2, 
+                        status: "PENDING", 
+                        total: 499.80, 
+                        createdAt: new Date().toISOString(),
+                        user: { name: "João Silva" }
+                    },
+                    { 
+                        id: 1003, 
+                        userId: 3, 
+                        status: "SHIPPED", 
+                        total: 899.99, 
+                        createdAt: new Date(Date.now() - 172800000).toISOString(),
+                        user: { name: "Maria Santos" }
+                    },
+                    { 
+                        id: 1004, 
+                        userId: 4, 
+                        status: "APPROVED", 
+                        total: 279.99, 
+                        createdAt: new Date(Date.now() - 259200000).toISOString(),
+                        user: { name: "Pedro Oliveira" }
+                    }
+                ]
+            };
+
+            updateDashboardUI();
+        }
+
+        // ===== ATUALIZAR INTERFACE DO DASHBOARD =====
+        function updateDashboardUI() {
+            // Atualizar cards
+            document.getElementById('total-users').textContent = dashboardData.users.length;
+            document.getElementById('total-products').textContent = dashboardData.products.length;
+            document.getElementById('total-orders').textContent = dashboardData.orders.length;
+            
+            // Calcular faturamento total
+            const revenue = dashboardData.orders.reduce((sum, order) => {
+                // Só considerar pedidos não cancelados
+                if (order.status !== 'CANCELED') {
+                    return sum + (order.total || 0);
+                }
+                return sum;
+            }, 0);
+            
+            document.getElementById('total-revenue').textContent = formatCurrency(revenue);
+
+            // Atualizar tabela de pedidos recentes
+            displayRecentOrders();
+        }
+
+        // ===== MOSTRAR PEDIDOS RECENTES =====
+        function displayRecentOrders() {
+            const tbody = document.getElementById('recent-orders-body');
+            
+            // Pegar os 5 pedidos mais recentes
+            const recentOrders = [...dashboardData.orders]
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                .slice(0, 5);
+
+            if (!recentOrders || recentOrders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="loading">Nenhum pedido encontrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = recentOrders.map(order => `
+                <tr>
+                    <td>#${order.id}</td>
+                    <td><strong>${order.user?.name || 'N/A'}</strong></td>
+                    <td>${formatCurrency(order.total)}</td>
+                    <td><span class="status status-${order.status?.toLowerCase() || 'pending'}">${order.status || 'PENDING'}</span></td>
+                    <td>${formatDate(order.createdAt)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ===== INICIALIZAR =====
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🏠 Página inicial carregada');
+            
+            // Mostrar banner se for modo demo
+            if (isModoDemo()) {
+                document.getElementById('demoWarning').style.display = 'block';
+            }
+            
+            // Carregar dados do dashboard
+            loadDashboard();
+            
+            // Atualizar a cada 30 segundos (opcional)
+            setInterval(() => {
+                console.log('🔄 Atualizando dashboard...');
+                loadDashboard();
+            }, 30000);
+        });
+
+        // ===== FUNÇÃO PARA RECARREGAR MANUALMENTE (OPCIONAL) =====
+        window.refreshDashboard = function() {
+            loadDashboard();
+            showNotification('Dashboard atualizado!', 'success');
+        };
+    </script>
+</body>
+</html>
