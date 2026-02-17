@@ -15,16 +15,16 @@ const authMiddleware = require("./middlewares/auth.middleware");
 
 const app = express();
 
-// ✅ CORS configurável para produção
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || [
+  origin: [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
+    "https://mini-erp-henna.vercel.app",
   ],
   optionsSuccessStatus: 200,
 };
-
 app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);

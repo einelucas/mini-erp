@@ -83,20 +83,13 @@ function displayUserInfo() {
 
 // ===== FUNÇÃO PRINCIPAL DE REQUISIÇÃO CORRIGIDA =====
 async function fetchWithAuth(url, options = {}) {
-  // Verificar CONFIG
-  if (typeof CONFIG === "undefined") {
-    throw new Error("Configuração não carregada");
-  }
+  if (typeof CONFIG === "undefined") throw new Error("Configuração não carregada");
 
   // MODO DEMO - retorna dados mock
-  if (isModoDemo()) {
-    return handleDemoRequest(url, options);
-  }
+  if (isModoDemo()) return handleDemoRequest(url, options);
 
-  // MODO REAL - faz requisição autenticada
-  const token =
-    localStorage.getItem("token") || sessionStorage.getItem("token");
-
+  // MODO REAL
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
   if (!token) {
     console.log("🔒 Token não encontrado, redirecionando para login...");
     window.location.href = "/index.html";
@@ -121,25 +114,24 @@ async function fetchWithAuth(url, options = {}) {
 
     clearTimeout(timeoutId);
 
-    if (response.status === 401) {
-      console.log("🔒 Sessão expirada, redirecionando para login...");
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = "/index.html";
-      throw new Error("Sessão expirada");
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("❌ Resposta inválida do servidor:", text);
+      throw new Error(`Erro ${response.status}`);
     }
 
-    return response;
-  } catch (error) {
+    return response.json(); // JSON seguro
+  } catch (err) {
     clearTimeout(timeoutId);
-
-    if (error.name === "AbortError") {
-      throw new Error("⏱️ Tempo limite excedido. Verifique sua conexão.");
-    }
-
-    console.error("❌ Erro na requisição:", error);
-    throw error;
+    if (err.name === "AbortError") throw new Error("⏱️ Tempo limite excedido. Verifique sua conexão.");
+    console.error("❌ Erro na requisição:", err);
+    throw err;
   }
+}
+
+// ===== FUNÇÃO AUXILIAR PARA PEGAR JSON =====
+async function fetchJson(url, options = {}) {
+  return fetchWithAuth(url, options);
 }
 
 // ===== HANDLE DEMO REQUEST - VERSÃO UNIFICADA =====

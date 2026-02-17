@@ -1,37 +1,41 @@
 // config.js - Configurações globais (carregado PRIMEIRO)
 const CONFIG = {
-  // API_URL será definida dinamicamente
+  // API_URL definida dinamicamente conforme ambiente
   get API_URL() {
-    // Se estiver no Render, usa a URL do backend
-    if (window.location.hostname.includes("onrender.com")) {
-      // Extrai o subdomínio do frontend para conectar ao backend
-      const subdomain = window.location.hostname.split(".")[0];
-      return `https://${subdomain}-backend.onrender.com/api`;
-    }
+    const hostname = window.location.hostname;
 
-    // Localhost
-    if (
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"
-    ) {
+    // Localhost (desenvolvimento)
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
       return "http://localhost:3000/api";
     }
 
-    // Produção customizada
-    return `https://${window.location.hostname}/api`;
+    // Frontend no Vercel → backend no Render
+    if (hostname.includes("vercel.app")) {
+      return "https://mini-erp-98tn.onrender.com/api"; // URL exata do backend
+    }
+
+    // Produção customizada (outros domínios)
+    return `https://${hostname}/api`;
   },
 
-  // Timeouts
+  // Timeout padrão para fetch (ms)
   TIMEOUT: 15000, // 15 segundos
 
-  // Modo demo (pode ser forçado por query string)
   get DEMO_MODE() {
-    return (
-      sessionStorage.getItem("modo_demo") === "true" ||
-      new URLSearchParams(window.location.search).has("demo")
-    );
+    const hostname = window.location.hostname;
+
+    // Ativar demo apenas no localhost
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return (
+        sessionStorage.getItem("modo_demo") === "true" ||
+        new URLSearchParams(window.location.search).has("demo")
+      );
+    }
+
+    // Em produção, nunca ativa demo
+    return false;
   },
 };
 
-// Não permitir modificação
+// Impedir alterações acidentais
 Object.freeze(CONFIG);
