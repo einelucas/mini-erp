@@ -6,10 +6,12 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
   const password = document.getElementById("password").value;
   const errorDiv = document.getElementById("errorMessage");
 
+  console.log("🔵 Tentativa de login para:", email);
+  console.log("🔵 API URL:", CONFIG.API_URL);
+
   errorDiv.classList.remove("show");
 
   try {
-    // IMPORTANTE: Usar CONFIG.API_URL em vez de API_URL
     const response = await fetch(`${CONFIG.API_URL}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -26,12 +28,14 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     localStorage.setItem("token", data.data.token);
     localStorage.setItem("user", JSON.stringify(data.data.user));
 
+    console.log("🔵 Login bem-sucedido! Redirecionando...");
+
     // Redirecionar para dashboard
-    window.location.href = "dashboard.html";
+    window.location.href = "/dashboard.html";
   } catch (error) {
     errorDiv.textContent = error.message;
     errorDiv.classList.add("show");
-    console.error("Erro no login:", error);
+    console.error("❌ Erro no login:", error);
   }
 });
 
@@ -54,7 +58,7 @@ document.getElementById("testeGratis").addEventListener("click", function (e) {
   sessionStorage.setItem("user", JSON.stringify(usuarioDemo));
   sessionStorage.setItem("modo_demo", "true");
 
-  window.location.href = "dashboard.html";
+  window.location.href = "/dashboard.html";
 });
 
 // ===== PRIMEIRO ACESSO =====
@@ -131,57 +135,3 @@ function openModal() {
     }
   });
 }
-
-// ===== LOGIN COM DIAGNÓSTICO =====
-document.getElementById("loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  
-  console.log("🔵 1. Evento de submit capturado");
-  
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const errorDiv = document.getElementById("errorMessage");
-
-  console.log("🔵 2. Email:", email);
-  console.log("🔵 3. API URL:", CONFIG.API_URL);
-  
-  errorDiv.classList.remove("show");
-
-  try {
-    console.log("🔵 4. Fazendo fetch para:", `${CONFIG.API_URL}/auth/login`);
-    
-    const response = await fetch(`${CONFIG.API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    console.log("🔵 5. Resposta recebida. Status:", response.status);
-    
-    const data = await response.json();
-    console.log("🔵 6. Dados da resposta:", data);
-
-    if (!response.ok) {
-      throw new Error(data.message || "Erro ao fazer login");
-    }
-
-    console.log("🔵 7. Login bem-sucedido!");
-    console.log("🔵 8. Token:", data.data?.token ? "✓ Recebido" : "✗ Ausente");
-    console.log("🔵 9. User:", data.data?.user ? "✓ Recebido" : "✗ Ausente");
-
-    // Sucesso no login
-    localStorage.setItem("token", data.data.token);
-    localStorage.setItem("user", JSON.stringify(data.data.user));
-
-    console.log("🔵 10. Dados salvos no localStorage");
-    console.log("🔵 11. Redirecionando para dashboard.html");
-
-    // Redirecionar para dashboard
-    window.location.href = "dashboard.html";
-    
-  } catch (error) {
-    console.error("❌ ERRO:", error);
-    errorDiv.textContent = error.message;
-    errorDiv.classList.add("show");
-  }
-});
