@@ -6,7 +6,6 @@
     <title>Mini ERP - Pedidos</title>
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Scripts de configuração PRIMEIRO -->
     <script src="../assets/js/config.js"></script>
     <script src="../assets/js/script.js"></script>
 </head>
@@ -20,7 +19,7 @@
             <div class="logo">MINI <span>ERP</span></div>
             <nav>
                 <ul>
-                    <li><a href="../index.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
+                    <li><a href="../dashboard.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
                     <li><a href="users.html"><span class="sidebar-icon icon-users"></span>Usuários</a></li>
                     <li><a href="products.html"><span class="sidebar-icon icon-products"></span>Produtos</a></li>
                     <li><a href="orders.html" class="active"><span class="sidebar-icon icon-orders"></span>Pedidos</a></li>
@@ -96,9 +95,7 @@
 
                 <div class="form-group">
                     <label>Itens do Pedido</label>
-                    <div id="items-container">
-                        <!-- Itens serão adicionados aqui via JS -->
-                    </div>
+                    <div id="items-container"></div>
                     <button type="button" onclick="addOrderItem()" class="btn btn-primary" style="margin-top: 10px; width: 100%">
                         + Adicionar Item
                     </button>
@@ -155,34 +152,31 @@
     </div>
 
     <script>
-        // ===== VARIÁVEIS GLOBAIS DA PÁGINA =====
         let orders = [];
         let products = [];
         let users = [];
         let currentOrderItems = [];
         let currentOrderId = null;
 
-        // ===== CARREGAR DADOS =====
         async function loadOrders() {
             const tbody = document.getElementById('orders-table-body');
             tbody.innerHTML = '<tr><td colspan="7" class="loading">Carregando pedidos...</td></tr>';
             
             try {
-                // Carregar todos os dados necessários
                 const [ordersRes, productsRes, usersRes] = await Promise.all([
                     fetchWithAuth('/orders'),
                     fetchWithAuth('/products'),
                     fetchWithAuth('/users')
                 ]);
 
-                const ordersData = await ordersRes.json();
-                const productsData = await productsRes.json();
-                const usersData = await usersRes.json();
+                const ordersResult = await ordersRes.json();
+                const productsResult = await productsRes.json();
+                const usersResult = await usersRes.json();
 
-                if (ordersData?.data) orders = ordersData.data;
-                if (productsData?.data) products = productsData.data;
-                if (usersData?.data) {
-                    users = usersData.data;
+                if (ordersResult?.data) orders = ordersResult.data;
+                if (productsResult?.data) products = productsResult.data;
+                if (usersResult?.data) {
+                    users = usersResult.data;
                     populateUserFilters();
                 }
 
@@ -244,7 +238,6 @@
             `).join('');
         }
 
-        // ===== FILTROS =====
         function filterOrders() {
             const statusFilter = document.getElementById('statusFilter').value;
             const userFilter = document.getElementById('userFilter').value;
@@ -270,7 +263,6 @@
             displayOrders(filtered);
         }
 
-        // ===== MODAL DE PEDIDO =====
         function openOrderModal() {
             if (products.length === 0) {
                 showNotification('Carregando produtos...', 'error');
@@ -354,7 +346,6 @@
             document.getElementById('orderTotal').innerHTML = formatCurrency(total);
         }
 
-        // ===== SALVAR PEDIDO =====
         async function saveOrder(event) {
             event.preventDefault();
 
@@ -370,7 +361,6 @@
                 return;
             }
 
-            // Validar estoque
             for (const item of currentOrderItems) {
                 if (!item.productId) {
                     showNotification('Selecione um produto para todos os itens', 'error');
@@ -392,32 +382,32 @@
             };
 
             try {
-                const res = await fetchWithAuth('/orders', {
+                const response = await fetchWithAuth('/orders', {
                     method: 'POST',
                     body: JSON.stringify(orderData)
                 });
 
-                if (res.ok) {
+                const result = await response.json();
+
+                if (response.ok) {
                     closeOrderModal();
                     await loadOrders();
                     showNotification('Pedido criado com sucesso!', 'success');
                 } else {
-                    const data = await res.json();
-                    throw new Error(data.message || 'Erro ao criar pedido');
+                    throw new Error(result.message || 'Erro ao criar pedido');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
             }
         }
 
-        // ===== DETALHES DO PEDIDO =====
         async function viewOrderDetails(id) {
             try {
                 const response = await fetchWithAuth(`/orders/${id}`);
-                const data = await response.json();
-                if (!data?.data) return;
+                const result = await response.json();
+                if (!result?.data) return;
 
-                const order = data.data;
+                const order = result.data;
                 
                 const detailsHtml = `
                     <div style="margin-bottom: 20px;">
@@ -464,7 +454,6 @@
             document.getElementById('detailsModal').classList.remove('active');
         }
 
-        // ===== ATUALIZAR STATUS =====
         function openStatusModal(id) {
             currentOrderId = id;
             document.getElementById('statusOrderId').value = id;
@@ -482,46 +471,44 @@
             const newStatus = document.getElementById('newStatus').value;
 
             try {
-                const res = await fetchWithAuth(`/orders/${orderId}/status`, {
+                const response = await fetchWithAuth(`/orders/${orderId}/status`, {
                     method: 'PATCH',
                     body: JSON.stringify({ status: newStatus })
                 });
 
-                if (res.ok) {
+                if (response.ok) {
                     closeStatusModal();
                     await loadOrders();
                     showNotification('Status atualizado!', 'success');
                 } else {
-                    const data = await res.json();
-                    throw new Error(data.message || 'Erro ao atualizar status');
+                    const result = await response.json();
+                    throw new Error(result.message || 'Erro ao atualizar status');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
             }
         }
 
-        // ===== CANCELAR PEDIDO =====
         async function cancelOrder(id) {
             if (!confirm('Tem certeza que deseja cancelar este pedido?')) return;
 
             try {
-                const res = await fetchWithAuth(`/orders/${id}/cancel`, {
+                const response = await fetchWithAuth(`/orders/${id}/cancel`, {
                     method: 'POST'
                 });
 
-                if (res.ok) {
+                if (response.ok) {
                     await loadOrders();
                     showNotification('Pedido cancelado!', 'success');
                 } else {
-                    const data = await res.json();
-                    throw new Error(data.message || 'Erro ao cancelar pedido');
+                    const result = await response.json();
+                    throw new Error(result.message || 'Erro ao cancelar pedido');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
             }
         }
 
-        // ===== FECHAR MODAL CLICANDO FORA =====
         window.onclick = function(event) {
             const modals = ['orderModal', 'detailsModal', 'statusModal'];
             modals.forEach(id => {
@@ -534,7 +521,6 @@
             });
         }
 
-        // ===== INICIALIZAR =====
         document.addEventListener('DOMContentLoaded', () => {
             loadOrders();
             

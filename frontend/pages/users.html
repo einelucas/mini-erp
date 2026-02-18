@@ -6,7 +6,6 @@
     <title>Mini ERP - Usuários</title>
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Scripts de configuração PRIMEIRO -->
     <script src="../assets/js/config.js"></script>
     <script src="../assets/js/script.js"></script>
 </head>
@@ -20,7 +19,7 @@
             <div class="logo">MINI <span>ERP</span></div>
             <nav>
                 <ul>
-                    <li><a href="../index.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
+                    <li><a href="../dashboard.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
                     <li><a href="users.html" class="active"><span class="sidebar-icon icon-users"></span>Usuários</a></li>
                     <li><a href="products.html"><span class="sidebar-icon icon-products"></span>Produtos</a></li>
                     <li><a href="orders.html"><span class="sidebar-icon icon-orders"></span>Pedidos</a></li>
@@ -80,7 +79,7 @@
                 
                 <div class="form-group">
                     <label for="password">Senha *</label>
-                    <input type="password" id="password" placeholder="******" title="Apenas para novos usuários">
+                    <input type="password" id="password" placeholder="******">
                 </div>
                 
                 <div class="modal-actions">
@@ -106,20 +105,18 @@
     </div>
 
     <script>
-        // ===== VARIÁVEIS GLOBAIS DA PÁGINA =====
         let currentUserId = null;
 
-        // ===== CARREGAR USUÁRIOS =====
         async function loadUsers() {
             const tbody = document.getElementById('users-table-body');
             tbody.innerHTML = '<tr><td colspan="6" class="loading">Carregando usuários...</td></tr>';
             
             try {
                 const response = await fetchWithAuth('/users');
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data.data && data.data.length > 0) {
-                    displayUsers(data.data);
+                if (result.data && result.data.length > 0) {
+                    displayUsers(result.data);
                 } else {
                     tbody.innerHTML = '<tr><td colspan="6" class="loading">Nenhum usuário encontrado</td></tr>';
                 }
@@ -147,7 +144,6 @@
             `).join('');
         }
 
-        // ===== FUNÇÕES DO MODAL =====
         function openUserModal(user = null) {
             const modal = document.getElementById('userModal');
             const passwordField = document.getElementById('password');
@@ -174,7 +170,6 @@
             document.getElementById('userModal').classList.remove('active');
         }
 
-        // ===== SALVAR USUÁRIO =====
         async function saveUser(event) {
             event.preventDefault();
             
@@ -203,33 +198,32 @@
                     });
                 }
 
+                const result = await response.json();
+                
                 if (response.ok) {
                     closeUserModal();
                     await loadUsers();
                     showNotification(userId ? 'Usuário atualizado!' : 'Usuário criado!', 'success');
                 } else {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Erro ao salvar');
+                    throw new Error(result.message || 'Erro ao salvar');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
             }
         }
 
-        // ===== EDITAR USUÁRIO =====
         async function editUser(id) {
             try {
                 const response = await fetchWithAuth(`/users/${id}`);
-                const data = await response.json();
-                if (data?.data) {
-                    openUserModal(data.data);
+                const result = await response.json();
+                if (result?.data) {
+                    openUserModal(result.data);
                 }
             } catch (error) {
                 showNotification('Erro ao carregar usuário: ' + error.message, 'error');
             }
         }
 
-        // ===== DELETAR USUÁRIO =====
         function deleteUser(id) {
             currentUserId = id;
             document.getElementById('deleteModal').classList.add('active');
@@ -253,28 +247,22 @@
                     await loadUsers();
                     showNotification('Usuário excluído!', 'success');
                 } else {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Erro ao excluir');
+                    const result = await response.json();
+                    throw new Error(result.message || 'Erro ao excluir');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
             }
         }
 
-        // ===== FECHAR MODAL CLICANDO FORA =====
         window.onclick = function(event) {
             const userModal = document.getElementById('userModal');
             const deleteModal = document.getElementById('deleteModal');
             
-            if (event.target === userModal) {
-                closeUserModal();
-            }
-            if (event.target === deleteModal) {
-                closeDeleteModal();
-            }
+            if (event.target === userModal) closeUserModal();
+            if (event.target === deleteModal) closeDeleteModal();
         }
 
-        // ===== INICIALIZAR =====
         document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
         });

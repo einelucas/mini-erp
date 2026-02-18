@@ -1,4 +1,4 @@
-// ===== script.js - VERSÃO CORRIGIDA =====
+// ===== script.js - VERSÃO CORRIGIDA PARA PRODUÇÃO =====
 
 // Aguardar CONFIG carregar
 if (typeof CONFIG === "undefined") {
@@ -24,29 +24,38 @@ function showDemoBanner() {
     return;
   }
 
-  const token =
-    localStorage.getItem("token") || sessionStorage.getItem("token");
   const currentPath = window.location.pathname;
   const fileName = currentPath.split("/").pop() || "index.html";
 
-  // Páginas públicas (SÓ index.html na raiz)
+  // Páginas públicas
   const publicPages = ["index.html"];
 
-  // Se está em página pública
+  // Se está em página pública, não precisa verificar
   if (publicPages.includes(fileName)) {
     // Se tem token e está no index, redirecionar para dashboard
-    if (token && fileName === "index.html") {
-      console.log("🔄 Já logado, redirecionando para dashboard...");
-      window.location.href = "/dashboard.html";
-    }
+    setTimeout(() => {
+      const token =
+        localStorage.getItem("token") || sessionStorage.getItem("token");
+      if (token && fileName === "index.html") {
+        console.log("🔄 Já logado, redirecionando para dashboard...");
+        window.location.href = "/dashboard.html";
+      }
+    }, 100);
     return;
   }
 
-  // Se NÃO está em página pública e NÃO tem token
-  if (!token) {
-    console.log("🔒 Redirecionando para index.html na raiz...");
-    window.location.href = "/index.html";
-  }
+  // Para páginas protegidas, verificar token com retry
+  setTimeout(() => {
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
+
+    if (!token) {
+      console.log("🔒 Token não encontrado, redirecionando para login...");
+      window.location.href = "/index.html";
+    } else {
+      console.log("🔓 Token encontrado, acesso permitido");
+    }
+  }, 100);
 })();
 
 // ===== FUNÇÃO DE LOGOUT CORRIGIDA =====
@@ -54,16 +63,13 @@ function logout() {
   if (confirm("Deseja realmente sair?")) {
     console.log("🔓 Fazendo logout...");
 
-    // Limpar todos os dados
     localStorage.clear();
     sessionStorage.clear();
-
-    // Redirecionar SEMPRE para o index.html na raiz do frontend
     window.location.href = "/index.html";
   }
 }
 
-// ===== MOSTRAR INFORMAÇÕES DO USUÁRIO CORRIGIDO =====
+// ===== MOSTRAR INFORMAÇÕES DO USUÁRIO =====
 function displayUserInfo() {
   const user = JSON.parse(
     localStorage.getItem("user") || sessionStorage.getItem("user") || "{}",
@@ -82,7 +88,6 @@ function displayUserInfo() {
         <button onclick="logout()" class="btn btn-cancel">Sair</button>
       `;
     } else {
-      // Link para login SEMPRE apontando para index.html na raiz
       element.innerHTML = `
         <a href="/index.html" class="btn btn-primary">Entrar</a>
       `;
@@ -96,13 +101,32 @@ async function fetchWithAuth(url, options = {}) {
     throw new Error("Configuração não carregada");
 
   // MODO DEMO - retorna dados mock
-  if (isModoDemo()) return handleDemoRequest(url, options);
+  if (isModoDemo()) {
+    const demoResponse = await handleDemoRequest(url, options);
+    // Garantir que a resposta tenha o formato correto
+    return {
+      ok: demoResponse.ok,
+      status: demoResponse.status,
+      json: async () => {
+        if (typeof demoResponse.json === "function") {
+          return demoResponse.json();
+        }
+        return demoResponse.data || {};
+      },
+      text: async () => {
+        if (typeof demoResponse.text === "function") {
+          return demoResponse.text();
+        }
+        return JSON.stringify(demoResponse.data || {});
+      },
+    };
+  }
 
   // MODO REAL
   const token =
     localStorage.getItem("token") || sessionStorage.getItem("token");
   if (!token) {
-    console.log("🔒 Token não encontrado, redirecionando para login...");
+    console.log("🔒 Token não encontrado, redirecionando...");
     window.location.href = "/index.html";
     throw new Error("Não autenticado");
   }
@@ -124,33 +148,7 @@ async function fetchWithAuth(url, options = {}) {
     });
 
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      // Tentar obter texto de erro de forma segura
-      let errorText = "";
-      try {
-        if (typeof response.text === "function") {
-          errorText = await response.text();
-        }
-      } catch (e) {
-        errorText = "Erro desconhecido";
-      }
-      console.error("❌ Resposta inválida do servidor:", errorText);
-      throw new Error(`Erro ${response.status}: ${errorText}`);
-    }
-
-    // Verificar se response.json é uma função
-    if (typeof response.json !== "function") {
-      console.error("❌ response.json não é uma função:", response);
-      throw new Error("Resposta inválida do servidor");
-    }
-
-    try {
-      return await response.json();
-    } catch (jsonError) {
-      console.error("❌ Erro ao fazer parse do JSON:", jsonError);
-      throw new Error("Resposta inválida do servidor (formato JSON incorreto)");
-    }
+    return response;
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
@@ -161,12 +159,7 @@ async function fetchWithAuth(url, options = {}) {
   }
 }
 
-// ===== FUNÇÃO AUXILIAR PARA PEGAR JSON =====
-async function fetchJson(url, options = {}) {
-  return fetchWithAuth(url, options);
-}
-
-// ===== HANDLE DEMO REQUEST - VERSÃO CORRIGIDA =====
+// ===== HANDLE DEMO REQUEST - VERSÃO SIMPLIFICADA =====
 async function handleDemoRequest(url, options = {}) {
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -175,18 +168,17 @@ async function handleDemoRequest(url, options = {}) {
       // HEALTH CHECK
       if (url === "/health") {
         return resolve({
-          json: () => Promise.resolve({ status: "ok", mode: "demo" }),
-          text: () =>
-            Promise.resolve(JSON.stringify({ status: "ok", mode: "demo" })),
           ok: true,
           status: 200,
+          json: () => Promise.resolve({ status: "ok", mode: "demo" }),
+          data: { status: "ok", mode: "demo" },
         });
       }
 
       // USERS
       if (url === "/users") {
         if (options.method === "GET") {
-          const usersData = {
+          const data = {
             data: [
               {
                 id: 1,
@@ -223,10 +215,10 @@ async function handleDemoRequest(url, options = {}) {
             ],
           };
           return resolve({
-            json: () => Promise.resolve(usersData),
-            text: () => Promise.resolve(JSON.stringify(usersData)),
             ok: true,
             status: 200,
+            json: () => Promise.resolve(data),
+            data: data,
           });
         }
 
@@ -236,23 +228,20 @@ async function handleDemoRequest(url, options = {}) {
           newUser.role = "USER";
           newUser.createdAt = new Date().toISOString();
           newUser._count = { orders: 0 };
-          const responseData = { data: newUser };
+          const data = { data: newUser };
           return resolve({
-            json: () => Promise.resolve(responseData),
-            text: () => Promise.resolve(JSON.stringify(responseData)),
             ok: true,
             status: 201,
+            json: () => Promise.resolve(data),
+            data: data,
           });
         }
       }
 
       // GET /users/:id
-      if (
-        url.match(/\/users\/\d+$/) &&
-        (!options.method || options.method === "GET")
-      ) {
+      if (url.match(/\/users\/\d+$/)) {
         const id = parseInt(url.split("/")[2]);
-        const userData = {
+        const data = {
           data: {
             id: id,
             name: "Usuário Demo",
@@ -262,106 +251,90 @@ async function handleDemoRequest(url, options = {}) {
           },
         };
         return resolve({
-          json: () => Promise.resolve(userData),
-          text: () => Promise.resolve(JSON.stringify(userData)),
           ok: true,
           status: 200,
-        });
-      }
-
-      // PUT /users/:id
-      if (url.match(/\/users\/\d+$/) && options?.method === "PUT") {
-        const updatedUser = JSON.parse(options.body);
-        updatedUser.id = parseInt(url.split("/")[2]);
-        const responseData = { data: updatedUser };
-        return resolve({
-          json: () => Promise.resolve(responseData),
-          text: () => Promise.resolve(JSON.stringify(responseData)),
-          ok: true,
-          status: 200,
+          json: () => Promise.resolve(data),
+          data: data,
         });
       }
 
       // DELETE /users/:id
       if (url.match(/\/users\/\d+$/) && options?.method === "DELETE") {
         return resolve({
-          json: () => Promise.resolve({}),
-          text: () => Promise.resolve(""),
           ok: true,
           status: 204,
+          json: () => Promise.resolve({}),
+          data: {},
         });
       }
 
       // PRODUCTS
       if (url === "/products") {
         if (options.method === "GET") {
-          const productsData = {
+          const data = {
             data: [
               {
                 id: 1,
                 name: "Notebook Dell",
-                description: "Core i7, 16GB RAM, SSD 512GB",
+                description: "Core i7, 16GB RAM",
                 price: 4500.0,
                 stock: 15,
               },
               {
                 id: 2,
                 name: "Mouse Sem Fio",
-                description: "Logitech MX Master 3",
+                description: "Logitech MX Master",
                 price: 299.9,
                 stock: 42,
               },
               {
                 id: 3,
                 name: "Teclado Mecânico",
-                description: "Redragon Switch Blue, RGB",
+                description: "Redragon Switch Blue",
                 price: 199.9,
                 stock: 8,
               },
               {
                 id: 4,
                 name: 'Monitor 24"',
-                description: "LG Full HD, IPS",
+                description: "LG Full HD",
                 price: 899.99,
                 stock: 5,
               },
               {
                 id: 5,
                 name: "SSD 480GB",
-                description: "Kingston A400",
+                description: "Kingston",
                 price: 279.99,
                 stock: 23,
               },
             ],
           };
           return resolve({
-            json: () => Promise.resolve(productsData),
-            text: () => Promise.resolve(JSON.stringify(productsData)),
             ok: true,
             status: 200,
+            json: () => Promise.resolve(data),
+            data: data,
           });
         }
 
         if (options.method === "POST") {
           const newProduct = JSON.parse(options.body);
           newProduct.id = Date.now();
-          const responseData = { data: newProduct };
+          const data = { data: newProduct };
           return resolve({
-            json: () => Promise.resolve(responseData),
-            text: () => Promise.resolve(JSON.stringify(responseData)),
             ok: true,
             status: 201,
+            json: () => Promise.resolve(data),
+            data: data,
           });
         }
       }
 
       // GET /products/:id
-      if (
-        url.match(/\/products\/\d+$/) &&
-        (!options.method || options.method === "GET")
-      ) {
+      if (url.match(/\/products\/\d+$/)) {
         const id = parseInt(url.split("/")[2]);
-        const productData = {
+        const data = {
           data: {
             id: id,
             name: "Produto Demo",
@@ -371,50 +344,37 @@ async function handleDemoRequest(url, options = {}) {
           },
         };
         return resolve({
-          json: () => Promise.resolve(productData),
-          text: () => Promise.resolve(JSON.stringify(productData)),
           ok: true,
           status: 200,
-        });
-      }
-
-      // PUT /products/:id
-      if (url.match(/\/products\/\d+$/) && options?.method === "PUT") {
-        const updatedProduct = JSON.parse(options.body);
-        updatedProduct.id = parseInt(url.split("/")[2]);
-        const responseData = { data: updatedProduct };
-        return resolve({
-          json: () => Promise.resolve(responseData),
-          text: () => Promise.resolve(JSON.stringify(responseData)),
-          ok: true,
-          status: 200,
+          json: () => Promise.resolve(data),
+          data: data,
         });
       }
 
       // DELETE /products/:id
       if (url.match(/\/products\/\d+$/) && options?.method === "DELETE") {
         return resolve({
-          json: () => Promise.resolve({}),
-          text: () => Promise.resolve(""),
           ok: true,
           status: 204,
+          json: () => Promise.resolve({}),
+          data: {},
         });
       }
 
       // PATCH /products/:id/stock
-      if (url.match(/\/products\/\d+\/stock$/) && options?.method === "PATCH") {
+      if (url.match(/\/products\/\d+\/stock$/)) {
         return resolve({
-          json: () => Promise.resolve({}),
-          text: () => Promise.resolve(""),
           ok: true,
           status: 200,
+          json: () => Promise.resolve({}),
+          data: {},
         });
       }
 
       // ORDERS
       if (url === "/orders") {
         if (options.method === "GET") {
-          const ordersData = {
+          const data = {
             data: [
               {
                 id: 1001,
@@ -422,7 +382,7 @@ async function handleDemoRequest(url, options = {}) {
                 status: "DELIVERED",
                 total: 4799.9,
                 createdAt: new Date(Date.now() - 86400000).toISOString(),
-                user: { name: "Admin Demo", email: "admin@demo.com" },
+                user: { name: "Admin Demo" },
                 items: [
                   {
                     product: { name: "Notebook Dell" },
@@ -437,7 +397,7 @@ async function handleDemoRequest(url, options = {}) {
                 status: "PENDING",
                 total: 499.8,
                 createdAt: new Date().toISOString(),
-                user: { name: "João Silva", email: "joao@demo.com" },
+                user: { name: "João Silva" },
                 items: [
                   {
                     product: { name: "Mouse Sem Fio" },
@@ -457,7 +417,7 @@ async function handleDemoRequest(url, options = {}) {
                 status: "SHIPPED",
                 total: 899.99,
                 createdAt: new Date(Date.now() - 172800000).toISOString(),
-                user: { name: "Maria Santos", email: "maria@demo.com" },
+                user: { name: "Maria Santos" },
                 items: [
                   {
                     product: { name: 'Monitor 24"' },
@@ -469,10 +429,10 @@ async function handleDemoRequest(url, options = {}) {
             ],
           };
           return resolve({
-            json: () => Promise.resolve(ordersData),
-            text: () => Promise.resolve(JSON.stringify(ordersData)),
             ok: true,
             status: 200,
+            json: () => Promise.resolve(data),
+            data: data,
           });
         }
 
@@ -481,23 +441,20 @@ async function handleDemoRequest(url, options = {}) {
           newOrder.id = Date.now();
           newOrder.status = "PENDING";
           newOrder.createdAt = new Date().toISOString();
-          const responseData = { data: newOrder };
+          const data = { data: newOrder };
           return resolve({
-            json: () => Promise.resolve(responseData),
-            text: () => Promise.resolve(JSON.stringify(responseData)),
             ok: true,
             status: 201,
+            json: () => Promise.resolve(data),
+            data: data,
           });
         }
       }
 
       // GET /orders/:id
-      if (
-        url.match(/\/orders\/\d+$/) &&
-        (!options.method || options.method === "GET")
-      ) {
+      if (url.match(/\/orders\/\d+$/)) {
         const id = parseInt(url.split("/")[2]);
-        const orderData = {
+        const data = {
           data: {
             id: id,
             userId: 1,
@@ -506,45 +463,41 @@ async function handleDemoRequest(url, options = {}) {
             createdAt: new Date().toISOString(),
             user: { name: "Cliente Demo", email: "cliente@demo.com" },
             items: [
-              {
-                product: { name: "Produto Demo" },
-                quantity: 1,
-                price: 1000,
-              },
+              { product: { name: "Produto Demo" }, quantity: 1, price: 1000 },
             ],
           },
         };
         return resolve({
-          json: () => Promise.resolve(orderData),
-          text: () => Promise.resolve(JSON.stringify(orderData)),
           ok: true,
           status: 200,
+          json: () => Promise.resolve(data),
+          data: data,
         });
       }
 
       // PATCH /orders/:id/status
-      if (url.match(/\/orders\/\d+\/status$/) && options?.method === "PATCH") {
+      if (url.match(/\/orders\/\d+\/status$/)) {
         return resolve({
-          json: () => Promise.resolve({}),
-          text: () => Promise.resolve(""),
           ok: true,
           status: 200,
+          json: () => Promise.resolve({}),
+          data: {},
         });
       }
 
       // POST /orders/:id/cancel
-      if (url.match(/\/orders\/\d+\/cancel$/) && options?.method === "POST") {
+      if (url.match(/\/orders\/\d+\/cancel$/)) {
         return resolve({
-          json: () => Promise.resolve({}),
-          text: () => Promise.resolve(""),
           ok: true,
           status: 200,
+          json: () => Promise.resolve({}),
+          data: {},
         });
       }
 
       // DASHBOARD METRICS
       if (url === "/dashboard/metrics") {
-        const metricsData = {
+        const data = {
           data: {
             totalUsers: 25,
             totalProducts: 48,
@@ -567,21 +520,20 @@ async function handleDemoRequest(url, options = {}) {
           },
         };
         return resolve({
-          json: () => Promise.resolve(metricsData),
-          text: () => Promise.resolve(JSON.stringify(metricsData)),
           ok: true,
           status: 200,
+          json: () => Promise.resolve(data),
+          data: data,
         });
       }
 
       // Fallback
-      console.warn("⚠️ Rota não mapeada no demo:", url);
       const fallbackData = { data: [] };
       resolve({
-        json: () => Promise.resolve(fallbackData),
-        text: () => Promise.resolve(JSON.stringify(fallbackData)),
         ok: true,
         status: 200,
+        json: () => Promise.resolve(fallbackData),
+        data: fallbackData,
       });
     }, 500);
   });
@@ -616,7 +568,6 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("🚀 Mini ERP inicializado");
   console.log("📡 API URL:", CONFIG?.API_URL);
   console.log("🎮 Modo demo:", isModoDemo() ? "ATIVO" : "inativo");
-  console.log("📍 Estrutura: Frontend com index.html na raiz");
 
   showDemoBanner();
   displayUserInfo();

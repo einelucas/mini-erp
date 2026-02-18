@@ -51,7 +51,7 @@
                     Dashboard
                 </h1>
                 <div class="user-info">
-                    <!-- O JavaScript vai preencher aqui com nome + badge DEMO -->
+                    <!-- O JavaScript vai preencher aqui -->
                 </div>
             </header>
 
@@ -119,7 +119,6 @@
         async function loadDashboard() {
             console.log('📊 Carregando dashboard...');
             
-            // Mostrar loading em todos os cards
             document.getElementById('total-users').textContent = '-';
             document.getElementById('total-products').textContent = '-';
             document.getElementById('total-orders').textContent = '-';
@@ -129,57 +128,44 @@
             tbody.innerHTML = '<tr><td colspan="5" class="loading">Carregando pedidos recentes...</td></tr>';
             
             try {
-                // Se for modo demo, usar dados mock diretamente
                 if (isModoDemo()) {
                     console.log('🎮 Modo demo - carregando dados mock');
                     loadDashboardMock();
                     return;
                 }
 
-                // Carregar dados reais da API
                 const [usersRes, productsRes, ordersRes] = await Promise.all([
-                    fetchWithAuth('/users').catch(() => ({ ok: false, data: [] })),
-                    fetchWithAuth('/products').catch(() => ({ ok: false, data: [] })),
-                    fetchWithAuth('/orders').catch(() => ({ ok: false, data: [] }))
+                    fetchWithAuth('/users').catch(() => ({ ok: false })),
+                    fetchWithAuth('/products').catch(() => ({ ok: false })),
+                    fetchWithAuth('/orders').catch(() => ({ ok: false }))
                 ]);
 
-                // Processar usuários
                 if (usersRes.ok) {
                     const usersData = await usersRes.json();
                     dashboardData.users = usersData.data || [];
                 }
 
-                // Processar produtos
                 if (productsRes.ok) {
                     const productsData = await productsRes.json();
                     dashboardData.products = productsData.data || [];
                 }
 
-                // Processar pedidos
                 if (ordersRes.ok) {
                     const ordersData = await ordersRes.json();
                     dashboardData.orders = ordersData.data || [];
                 }
 
-                // Atualizar a interface
                 updateDashboardUI();
 
             } catch (error) {
                 console.error('❌ Erro ao carregar dashboard:', error);
-                
-                // Se erro e não for modo demo, tentar modo demo como fallback
                 if (!isModoDemo()) {
-                    console.log('⚠️ Erro na API, usando dados mock como fallback');
                     loadDashboardMock();
-                } else {
-                    showNotification('Erro ao carregar dados: ' + error.message, 'error');
                 }
             }
         }
 
-        // ===== CARREGAR DADOS MOCK (MODO DEMO) =====
         function loadDashboardMock() {
-            // Dados mock
             dashboardData = {
                 users: [
                     { id: 1, name: "Admin Demo" },
@@ -195,54 +181,21 @@
                     { id: 5, name: "SSD 480GB", price: 279.99, stock: 23 }
                 ],
                 orders: [
-                    { 
-                        id: 1001, 
-                        userId: 1, 
-                        status: "DELIVERED", 
-                        total: 4799.90, 
-                        createdAt: new Date(Date.now() - 86400000).toISOString(),
-                        user: { name: "Admin Demo" }
-                    },
-                    { 
-                        id: 1002, 
-                        userId: 2, 
-                        status: "PENDING", 
-                        total: 499.80, 
-                        createdAt: new Date().toISOString(),
-                        user: { name: "João Silva" }
-                    },
-                    { 
-                        id: 1003, 
-                        userId: 3, 
-                        status: "SHIPPED", 
-                        total: 899.99, 
-                        createdAt: new Date(Date.now() - 172800000).toISOString(),
-                        user: { name: "Maria Santos" }
-                    },
-                    { 
-                        id: 1004, 
-                        userId: 4, 
-                        status: "APPROVED", 
-                        total: 279.99, 
-                        createdAt: new Date(Date.now() - 259200000).toISOString(),
-                        user: { name: "Pedro Oliveira" }
-                    }
+                    { id: 1001, userId: 1, status: "DELIVERED", total: 4799.90, createdAt: new Date(Date.now() - 86400000).toISOString(), user: { name: "Admin Demo" } },
+                    { id: 1002, userId: 2, status: "PENDING", total: 499.80, createdAt: new Date().toISOString(), user: { name: "João Silva" } },
+                    { id: 1003, userId: 3, status: "SHIPPED", total: 899.99, createdAt: new Date(Date.now() - 172800000).toISOString(), user: { name: "Maria Santos" } },
+                    { id: 1004, userId: 4, status: "APPROVED", total: 279.99, createdAt: new Date(Date.now() - 259200000).toISOString(), user: { name: "Pedro Oliveira" } }
                 ]
             };
-
             updateDashboardUI();
         }
 
-        // ===== ATUALIZAR INTERFACE DO DASHBOARD =====
         function updateDashboardUI() {
-            // Atualizar cards
             document.getElementById('total-users').textContent = dashboardData.users.length;
             document.getElementById('total-products').textContent = dashboardData.products.length;
             document.getElementById('total-orders').textContent = dashboardData.orders.length;
             
-            // Calcular faturamento total
             const revenue = dashboardData.orders.reduce((sum, order) => {
-                // Só considerar pedidos não cancelados
                 if (order.status !== 'CANCELED') {
                     return sum + (order.total || 0);
                 }
@@ -250,16 +203,12 @@
             }, 0);
             
             document.getElementById('total-revenue').textContent = formatCurrency(revenue);
-
-            // Atualizar tabela de pedidos recentes
             displayRecentOrders();
         }
 
-        // ===== MOSTRAR PEDIDOS RECENTES =====
         function displayRecentOrders() {
             const tbody = document.getElementById('recent-orders-body');
             
-            // Pegar os 5 pedidos mais recentes
             const recentOrders = [...dashboardData.orders]
                 .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                 .slice(0, 5);
@@ -280,30 +229,14 @@
             `).join('');
         }
 
-        // ===== INICIALIZAR =====
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🏠 Página inicial carregada');
-            
-            // Mostrar banner se for modo demo
+            console.log('🏠 Dashboard carregado');
             if (isModoDemo()) {
                 document.getElementById('demoWarning').style.display = 'block';
             }
-            
-            // Carregar dados do dashboard
             loadDashboard();
-            
-            // Atualizar a cada 30 segundos (opcional)
-            setInterval(() => {
-                console.log('🔄 Atualizando dashboard...');
-                loadDashboard();
-            }, 30000);
+            setInterval(() => loadDashboard(), 30000);
         });
-
-        // ===== FUNÇÃO PARA RECARREGAR MANUALMENTE (OPCIONAL) =====
-        window.refreshDashboard = function() {
-            loadDashboard();
-            showNotification('Dashboard atualizado!', 'success');
-        };
     </script>
 </body>
 </html>

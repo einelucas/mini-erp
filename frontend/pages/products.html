@@ -6,7 +6,6 @@
     <title>Mini ERP - Produtos</title>
     <link rel="stylesheet" href="../assets/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Aclonica&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Scripts de configuração PRIMEIRO -->
     <script src="../assets/js/config.js"></script>
     <script src="../assets/js/script.js"></script>
 </head>
@@ -20,7 +19,7 @@
             <div class="logo">MINI <span>ERP</span></div>
             <nav>
                 <ul>
-                    <li><a href="../index.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
+                    <li><a href="../dashboard.html"><span class="sidebar-icon icon-dashboard"></span>Dashboard</a></li>
                     <li><a href="users.html"><span class="sidebar-icon icon-users"></span>Usuários</a></li>
                     <li><a href="products.html" class="active"><span class="sidebar-icon icon-products"></span>Produtos</a></li>
                     <li><a href="orders.html"><span class="sidebar-icon icon-orders"></span>Pedidos</a></li>
@@ -33,6 +32,12 @@
                 <h1><span class="header-icon icon-products-header"></span>Produtos</h1>
                 <div class="user-info"></div>
             </header>
+
+            <div class="recent-section filter-section">
+                <div class="filter-bar">
+                    <input type="text" id="searchProduct" placeholder="Buscar produto..." style="flex: 1; padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--white);">
+                </div>
+            </div>
 
             <div class="cards">
                 <div class="card">
@@ -168,21 +173,21 @@
     </div>
 
     <script>
-        // ===== VARIÁVEIS GLOBAIS DA PÁGINA =====
         let products = [];
         let currentProductId = null;
+        let filteredProducts = [];
 
-        // ===== CARREGAR PRODUTOS =====
         async function loadProducts() {
             const tbody = document.getElementById('products-table-body');
             tbody.innerHTML = '<tr><td colspan="7" class="loading">Carregando produtos...</td></tr>';
             
             try {
                 const response = await fetchWithAuth('/products');
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data.data && data.data.length > 0) {
-                    products = data.data;
+                if (result.data && result.data.length > 0) {
+                    products = result.data;
+                    filteredProducts = [...products];
                     updateSummaryCards(products);
                     displayProducts(products);
                 } else {
@@ -212,10 +217,10 @@
             return 'status-success';
         }
 
-        function displayProducts(products) {
+        function displayProducts(productsToShow) {
             const tbody = document.getElementById('products-table-body');
             
-            tbody.innerHTML = products.map(product => `
+            tbody.innerHTML = productsToShow.map(product => `
                 <tr>
                     <td>#${product.id}</td>
                     <td><strong>${product.name}</strong></td>
@@ -236,7 +241,15 @@
             `).join('');
         }
 
-        // ===== CRUD Operations =====
+        function filterProducts() {
+            const searchTerm = document.getElementById('searchProduct').value.toLowerCase();
+            filteredProducts = products.filter(p => 
+                p.name.toLowerCase().includes(searchTerm) || 
+                (p.description && p.description.toLowerCase().includes(searchTerm))
+            );
+            displayProducts(filteredProducts);
+        }
+
         async function saveProduct(event) {
             event.preventDefault();
             
@@ -257,13 +270,14 @@
                     body: JSON.stringify(productData)
                 });
 
+                const result = await response.json();
+
                 if (response.ok) {
                     closeProductModal();
                     await loadProducts();
                     showNotification(productId ? 'Produto atualizado!' : 'Produto criado!', 'success');
                 } else {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Erro ao salvar');
+                    throw new Error(result.message || 'Erro ao salvar');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
@@ -273,9 +287,9 @@
         async function editProduct(id) {
             try {
                 const response = await fetchWithAuth(`/products/${id}`);
-                const data = await response.json();
-                if (data?.data) {
-                    openProductModal(data.data);
+                const result = await response.json();
+                if (result?.data) {
+                    openProductModal(result.data);
                 }
             } catch (error) {
                 showNotification('Erro ao carregar produto: ' + error.message, 'error');
@@ -305,8 +319,8 @@
                     await loadProducts();
                     showNotification('Produto excluído!', 'success');
                 } else {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Erro ao excluir');
+                    const result = await response.json();
+                    throw new Error(result.message || 'Erro ao excluir');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
@@ -331,15 +345,14 @@
                     await loadProducts();
                     showNotification('Estoque atualizado!', 'success');
                 } else {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Erro ao atualizar estoque');
+                    const result = await response.json();
+                    throw new Error(result.message || 'Erro ao atualizar estoque');
                 }
             } catch (error) {
                 showNotification(error.message, 'error');
             }
         }
 
-        // Funções de modal
         function openProductModal(product = null) {
             document.getElementById('productModalTitle').textContent = product ? 'Editar Produto' : 'Novo Produto';
             document.getElementById('productId').value = product?.id || '';
@@ -365,17 +378,6 @@
             document.getElementById('stockModal').classList.remove('active');
         }
 
-        // ===== FILTRO DE PRODUTOS =====
-        function filterProducts() {
-            const searchTerm = document.getElementById('searchProduct').value.toLowerCase();
-            const filtered = products.filter(p => 
-                p.name.toLowerCase().includes(searchTerm) || 
-                (p.description && p.description.toLowerCase().includes(searchTerm))
-            );
-            displayProducts(filtered);
-        }
-
-        // ===== FECHAR MODAL CLICANDO FORA =====
         window.onclick = function(event) {
             const modals = ['productModal', 'stockModal', 'deleteProductModal'];
             modals.forEach(id => {
@@ -388,15 +390,9 @@
             });
         }
 
-        // ===== INICIALIZAR =====
         document.addEventListener('DOMContentLoaded', () => {
             loadProducts();
-            
-            // Adicionar evento de busca
-            const searchInput = document.getElementById('searchProduct');
-            if (searchInput) {
-                searchInput.addEventListener('keyup', filterProducts);
-            }
+            document.getElementById('searchProduct')?.addEventListener('keyup', filterProducts);
         });
     </script>
 </body>
