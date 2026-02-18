@@ -48,7 +48,7 @@ src/database/generated/
 !prisma/schema.prisma
 
 # ===== ARQUIVOS DO FRONTEND =====
-frontend/assets/images/
+
 # Se você for usar PNGs, coloque-os no repositório
 # !frontend/assets/images/*.png
 
