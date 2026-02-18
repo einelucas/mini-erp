@@ -19,10 +19,11 @@ const corsOptions = {
   origin: [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "https://mini-erp-henna.vercel.app",
+    "https://mini-erp-henna.vercel.app", // frontend em produção
   ],
   optionsSuccessStatus: 200,
 };
+
 app.use(cors(corsOptions));
 
 app.use(express.json());

@@ -1,5 +1,4 @@
 # Já está no .gitignore raiz
 node_modules/
 .env
-assets/images/
 # Se quiser incluir imagens padrão, use !assets/images/default.png
